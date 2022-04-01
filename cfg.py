@@ -125,7 +125,7 @@ def parse_args():
     parser.add_argument(
         '--data_path',
         type=str,
-        default='./data',
+        default='/tmp/cifar10/',
         help='The path of data set')
     parser.add_argument('--init_type', type=str, default='normal',
                         choices=['normal', 'orth', 'xavier_uniform', 'false'],

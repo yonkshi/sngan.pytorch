@@ -20,10 +20,10 @@ import torch
 import os
 import numpy as np
 import torch.nn as nn
-from tensorboardX import SummaryWriter
+
 from tqdm import tqdm
 from copy import deepcopy
-
+import wandb
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = True
 
@@ -31,15 +31,16 @@ torch.backends.cudnn.benchmark = True
 def main():
     args = cfg.parse_args()
     torch.cuda.manual_seed(args.random_seed)
+    wandb.init(config=args, project='SNGAN', job_type='train', name=args.exp_name)
 
     # set tf env
     _init_inception()
     inception_path = check_or_download_inception(None)
     create_inception_graph(inception_path)
 
-    # import network
-    gen_net = eval('models.'+args.model+'.Generator')(args=args).cuda()
-    dis_net = eval('models.'+args.model+'.Discriminator')(args=args).cuda()
+    # import networ
+    gen_net = eval('models.sngan_cifar10.Generator')(args=args).cuda()
+    dis_net = eval('models.sngan_cifar10.Discriminator')(args=args).cuda()
 
     # weight init
     def weights_init(m):
@@ -121,7 +122,7 @@ def main():
 
     logger.info(args)
     writer_dict = {
-        'writer': SummaryWriter(args.path_helper['log_path']),
+
         'train_global_steps': start_epoch * len(train_loader),
         'valid_global_steps': start_epoch // args.val_freq,
     }
@@ -129,10 +130,10 @@ def main():
     # train loop
     lr_schedulers = (gen_scheduler, dis_scheduler) if args.lr_decay else None
     for epoch in tqdm(range(int(start_epoch), int(args.max_epoch)), desc='total progress'):
-        train(args, gen_net, dis_net, gen_optimizer, dis_optimizer, gen_avg_param, train_loader, epoch, writer_dict,
-              lr_schedulers)
+        train(args, gen_net, dis_net, gen_optimizer, dis_optimizer, gen_avg_param, train_loader, epoch, writer_dict)
 
-        if epoch and epoch % args.val_freq == 0 or epoch == int(args.max_epoch)-1:
+        # TODO Eval stuff
+        if epoch % args.val_freq == 0 or epoch == int(args.max_epoch)-1:
             backup_param = copy_params(gen_net)
             load_params(gen_net, gen_avg_param)
             inception_score, fid_score = validate(args, fixed_z, fid_stat, gen_net, writer_dict)

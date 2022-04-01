@@ -13,6 +13,7 @@ from imageio import imsave
 from tqdm import tqdm
 from copy import deepcopy
 import logging
+import wandb
 
 from utils.inception_score import get_inception_score
 from utils.fid_score import calculate_fid_given_paths
@@ -22,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 def train(args, gen_net: nn.Module, dis_net: nn.Module, gen_optimizer, dis_optimizer, gen_avg_param, train_loader, epoch,
-          writer_dict, schedulers=None):
-    writer = writer_dict['writer']
+          writer_dict):
+    # writer = writer_dict['writer']
     gen_step = 0
 
     # train mode
@@ -56,7 +57,8 @@ def train(args, gen_net: nn.Module, dis_net: nn.Module, gen_optimizer, dis_optim
         d_loss.backward()
         dis_optimizer.step()
 
-        writer.add_scalar('d_loss', d_loss.item(), global_steps)
+        # writer.add_scalar('d_loss', d_loss.item(), global_steps)
+        wandb.log({'d_loss': d_loss.item()}, step=global_steps)
 
         # -----------------
         #  Train Generator
@@ -73,19 +75,13 @@ def train(args, gen_net: nn.Module, dis_net: nn.Module, gen_optimizer, dis_optim
             g_loss.backward()
             gen_optimizer.step()
 
-            # adjust learning rate
-            if schedulers:
-                gen_scheduler, dis_scheduler = schedulers
-                g_lr = gen_scheduler.step(global_steps)
-                d_lr = dis_scheduler.step(global_steps)
-                writer.add_scalar('LR/g_lr', g_lr, global_steps)
-                writer.add_scalar('LR/d_lr', d_lr, global_steps)
 
-            # moving average weight
+            # moving average weight for eval
             for p, avg_p in zip(gen_net.parameters(), gen_avg_param):
                 avg_p.mul_(0.999).add_(0.001, p.data)
 
-            writer.add_scalar('g_loss', g_loss.item(), global_steps)
+            # writer.add_scalar('g_loss', g_loss.item(), global_steps)
+            wandb.log({'g_loss':g_loss.item()}, step=global_steps)
             gen_step += 1
 
         # verbose
@@ -98,7 +94,7 @@ def train(args, gen_net: nn.Module, dis_net: nn.Module, gen_optimizer, dis_optim
 
 
 def validate(args, fixed_z, fid_stat, gen_net: nn.Module, writer_dict):
-    writer = writer_dict['writer']
+    # writer = writer_dict['writer']
     global_steps = writer_dict['valid_global_steps']
 
     # eval mode
@@ -133,11 +129,17 @@ def validate(args, fixed_z, fid_stat, gen_net: nn.Module, writer_dict):
     fid_score = calculate_fid_given_paths([fid_buffer_dir, fid_stat], inception_path=None)
 
     os.system('rm -r {}'.format(fid_buffer_dir))
-
-    writer.add_image('sampled_images', img_grid, global_steps)
-    writer.add_scalar('Inception_score/mean', mean, global_steps)
-    writer.add_scalar('Inception_score/std', std, global_steps)
-    writer.add_scalar('FID_score', fid_score, global_steps)
+    # writer.add_image('sampled_images', img_grid, global_steps)
+    # writer.add_scalar('Inception_score/mean', mean, global_steps)
+    # writer.add_scalar('Inception_score/std', std, global_steps)
+    # writer.add_scalar('FID_score', fid_score, global_steps)
+    wandb.log({
+        'Inception_score/mean': mean,
+        'Inception_score/std':std,
+        'FID_score': fid_score,
+        'sampled_images':wandb.Image(img_grid, caption='step_' + str(global_steps)),
+        'epoch':global_steps,
+    })
 
     writer_dict['valid_global_steps'] = global_steps + 1
 

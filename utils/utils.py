@@ -6,7 +6,6 @@
 
 import os
 import torch
-import dateutil.tz
 from datetime import datetime
 import time
 import logging
@@ -33,7 +32,7 @@ def set_log_dir(root_dir, exp_name):
 
     # set log path
     exp_path = os.path.join(root_dir, exp_name)
-    now = datetime.now(dateutil.tz.tzlocal())
+    now = datetime.now()
     timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
     prefix = exp_path + '_' + timestamp
     os.makedirs(prefix)
